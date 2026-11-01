@@ -238,37 +238,64 @@ $('#waJoin').addEventListener('click', closeWa);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeWa(); });
 
 /* ---------- Member entries (need admin approval) ---------- */
-let mySubsData = [], reviewData = [];
+let mySubsData = [], reviewData = [], keepProof = [];
 const nameOfKey = (k) => (cfg.criteria.find((c) => c.key === k) || {}).name || k;
 const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
 function resetEntryForm() {
   const f = $('#entryForm');
   f.reset(); f.entryId.value = ''; f.date.value = today();
+  keepProof = []; renderKeep();
   $('#entryBtn').textContent = 'Submit for approval';
   $('#entryCancel').classList.add('hidden');
 }
 function renderSubs() {
-  $('#mySubs').innerHTML = '<tr><th>Date</th><th>Criterion</th><th>Amount</th><th>Status</th><th>Notes</th><th></th></tr>' +
+  $('#mySubs').innerHTML = '<tr><th>Date</th><th>Criterion</th><th>Amount</th><th>Status</th><th>Notes</th><th>Proof</th><th></th></tr>' +
     (mySubsData.length ? mySubsData.map((s) => `<tr><td>${esc(s.date)}</td><td>${esc(nameOfKey(s.key))}</td><td>${s.value}</td>
       <td><span class="badge ${s.status.toLowerCase()}">${s.status}</span></td>
       <td>${esc(s.note)}${s.adminNote ? ` <em>Admin: ${esc(s.adminNote)}</em>` : ''}</td>
+      <td>${proofLinks(s.proof)}</td>
       <td>${s.status === 'Approved' ? '' : `<button type="button" class="btn ghost sm" data-edit="${esc(s.id)}">Edit</button><button type="button" class="btn ghost sm" data-del="${esc(s.id)}">Delete</button>`}</td></tr>`).join('')
-      : '<tr><td colspan="6">Nothing submitted yet.</td></tr>');
+      : '<tr><td colspan="7">Nothing submitted yet.</td></tr>');
 }
 $('#entryCancel').addEventListener('click', () => { resetEntryForm(); setMsg($('#entryMsg'), '', true); });
 $('#entryForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const s = session.get(), f = Object.fromEntries(new FormData(e.target)), editing = !!f.entryId;
-  const r = await api({ action: editing ? 'editEntry' : 'submitEntry', id: s.id, token: s.token, ...f });
-  setMsg($('#entryMsg'), r.ok ? (editing ? 'Changes saved. Waiting for admin approval.' : 'Submitted. Waiting for admin approval.') : r.error, r.ok);
-  if (r.ok) loadDashboard(s, true);
+  const files = [...$('#proofFiles').files];
+  const bad = checkFiles(files);
+  if (bad) return setMsg($('#entryMsg'), bad, false);
+  const btn = $('#entryBtn');
+  btn.disabled = true;
+  try {
+    setMsg($('#entryMsg'), 'Saving your entry…', true);
+    const payload = { action: editing ? 'editEntry' : 'submitEntry', id: s.id, token: s.token, ...f };
+    if (editing) payload.keepIds = keepProof.map((x) => x.id);
+    const r = await api(payload);
+    if (!r.ok) return setMsg($('#entryMsg'), r.error, false);
+    const entryId = editing ? f.entryId : r.id;
+    let failed = 0, why = '';
+    for (let i = 0; i < files.length; i++) {
+      setMsg($('#entryMsg'), `Uploading file ${i + 1} of ${files.length}…`, true);
+      try {
+        const u = await prepareFile(files[i]);
+        const up = await api({ action: 'uploadProof', id: s.id, token: s.token, entryId, name: u.name, data: u.data });
+        if (!up.ok) { failed++; why = up.error; }
+      } catch (x) { failed++; why = 'The upload did not finish.'; }
+    }
+    setMsg($('#entryMsg'), failed ? `Entry saved, but ${failed} file${failed > 1 ? 's' : ''} did not upload: ${why} Edit the entry to try again.` : (editing ? 'Changes saved. Waiting for admin approval.' : 'Submitted. Waiting for admin approval.'), !failed);
+    loadDashboard(s, true);
+  } catch (x) {
+    setMsg($('#entryMsg'), 'Something went wrong. Check your connection and try again.', false);
+  } finally { btn.disabled = false; }
 });
 $('#mySubs').addEventListener('click', async (e) => {
+  if (e.target.dataset.proof) return openProof(e.target.dataset.proof, $('#entryMsg'), false);
   const s = session.get(), ed = e.target.dataset.edit, del = e.target.dataset.del;
   if (ed) {
     const x = mySubsData.find((q) => q.id === ed), f = $('#entryForm');
     f.entryId.value = x.id; f.criteriaKey.value = x.key; f.value.value = x.value; f.date.value = x.date; f.note.value = x.note;
+    keepProof = (x.proof || []).slice(); renderKeep();
     $('#entryBtn').textContent = 'Save changes';
     $('#entryCancel').classList.remove('hidden');
     f.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -280,21 +307,75 @@ $('#mySubs').addEventListener('click', async (e) => {
   }
 });
 
+/* ---------- Receipts and screenshots ---------- */
+const MAX_BYTES = 10 * 1024 * 1024, MAX_FILES = 3;
+const proofLinks = (list) => (list || []).map((p) => `<button type="button" class="link" data-proof="${esc(p.id)}">${esc(p.name)}</button>`).join('<br>');
+function renderKeep() {
+  $('#proofKeep').innerHTML = keepProof.map((p) => `<span class="chip">${esc(p.name)}<button type="button" data-rm="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button></span>`).join('');
+}
+$('#proofKeep').addEventListener('click', (e) => {
+  const id = e.target.dataset.rm;
+  if (id) { keepProof = keepProof.filter((p) => p.id !== id); renderKeep(); }
+});
+function checkFiles(files) {
+  if (keepProof.length + files.length > MAX_FILES) return `You can attach up to ${MAX_FILES} files per entry.`;
+  for (const f of files) {
+    if (f.size >= MAX_BYTES) return `“${f.name}” is ${(f.size / 1048576).toFixed(1)} MB. Each file must be under 10 MB.`;
+    const okType = /^(image\/(png|jpeg|webp|heic|heif)|application\/pdf)$/.test(f.type) || /\.(png|jpe?g|webp|heic|heif|pdf)$/i.test(f.name);
+    if (!okType) return `“${f.name}” is not a supported file. Use a photo, screenshot or PDF.`;
+  }
+  return '';
+}
+$('#proofFiles').addEventListener('change', (e) => {
+  const bad = checkFiles([...e.target.files]);
+  if (bad) e.target.value = '';
+  setMsg($('#entryMsg'), bad, !bad);
+});
+const toBase64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
+/* Large photos are shrunk in the browser first, so uploads stay quick */
+async function prepareFile(file) {
+  let blob = file, name = file.name;
+  if (/^image\/(png|jpeg|webp)$/.test(file.type) && file.size > 1.5 * 1048576) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(bmp, 0, 0, c.width, c.height);
+      const small = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85));
+      if (small && small.size < file.size) { blob = small; name = name.replace(/\.\w+$/, '') + '.jpg'; }
+    } catch (x) { /* keep the original file */ }
+  }
+  return { name, data: await toBase64(blob) };
+}
+async function openProof(fileId, msgEl, asAdmin) {
+  const s = session.get();
+  const w = window.open('', '_blank');
+  if (w) w.document.write('Loading…');
+  const r = await api(asAdmin ? { action: 'getProof', token: s.token, fileId } : { action: 'getProof', id: s.id, token: s.token, fileId });
+  if (!r.ok) { if (w) w.close(); return setMsg(msgEl, r.error, false); }
+  const url = URL.createObjectURL(new Blob([Uint8Array.from(atob(r.data), (c) => c.charCodeAt(0))], { type: r.mime }));
+  if (w) w.location = url; else location.href = url;
+}
+
 /* ---------- Admin approvals ---------- */
 function renderReview() {
   const pending = reviewData.filter((s) => s.status === 'Pending').length;
   $('#pendingCount').textContent = pending + ' pending';
   $('#pendingCount').classList.toggle('hidden', !pending);
-  $('#reviewTable').innerHTML = '<tr><th>Date</th><th>Member</th><th>Criterion</th><th>Amount</th><th>Note</th><th>Status</th><th>Admin note</th><th></th></tr>' +
+  $('#reviewTable').innerHTML = '<tr><th>Date</th><th>Member</th><th>Criterion</th><th>Amount</th><th>Note</th><th>Proof</th><th>Status</th><th>Admin note</th><th></th></tr>' +
     (reviewData.length ? reviewData.map((s) => `<tr data-id="${esc(s.id)}">
       <td>${esc(s.date)}</td><td>${esc(s.name)}</td><td>${esc(nameOfKey(s.key))}</td>
       <td><input class="rv" type="number" step="any" min="0" value="${s.value}"></td>
-      <td>${esc(s.note)}</td><td><span class="badge ${s.status.toLowerCase()}">${s.status}</span></td>
+      <td>${esc(s.note)}</td><td>${proofLinks(s.proof)}</td><td><span class="badge ${s.status.toLowerCase()}">${s.status}</span></td>
       <td><input class="rn" value="${esc(s.adminNote)}" placeholder="Optional"></td>
       <td>${s.status === 'Pending' ? '<button type="button" class="btn sm" data-d="Approved">Approve</button><button type="button" class="btn ghost sm" data-d="Rejected">Reject</button>' : '<button type="button" class="btn ghost sm" data-d="Pending">Reopen</button>'}</td></tr>`).join('')
-      : '<tr><td colspan="8">No entries yet.</td></tr>');
+      : '<tr><td colspan="9">No entries yet.</td></tr>');
 }
 $('#reviewTable').addEventListener('click', async (e) => {
+  if (e.target.dataset.proof) return openProof(e.target.dataset.proof, $('#reviewMsg'), true);
   const d = e.target.dataset.d;
   if (!d) return;
   const tr = e.target.closest('tr');
@@ -327,9 +408,14 @@ $('#pdfBtn').addEventListener('click', async () => {
   const clean = (t) => String(t).replace(/[’‘]/g, "'").toUpperCase();
   const head = [['NAME', ...cfg.criteria.map((c) => clean(c.name) + '\n(' + c.weight + '%)'), 'CUMULATIVE\nSCORE', 'POSITION']];
   const PER = 8;
+  const now = new Date();
+  const dateText = 'DATE: ' + now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
+  const dateStamp = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   for (let i = 0; i < Math.max(adminBoard.length, 1); i += PER) {
     if (i) doc.addPage();
     if (logo) doc.addImage(logo.data, 'PNG', 50, 98, (32 * logo.w) / logo.h, 32);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    doc.text(dateText, W - 50, 118, { align: 'right' });
     doc.setFont('courier', 'bold'); doc.setFontSize(20);
     doc.text(PDF_TITLE, W / 2, 181, { align: 'center' });
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
@@ -343,7 +429,7 @@ $('#pdfBtn').addEventListener('click', async () => {
       columnStyles: { 0: { cellWidth: 90 } }
     });
   }
-  doc.save('LBDN-Car-Award-Dashboard.pdf');
+  doc.save('LBDN-Car-Award-Dashboard-' + dateStamp + '.pdf');
 });
 
 /* ---------- Boot ---------- */
