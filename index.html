@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LBDN Car Award</title>
+  <link rel="icon" href="images/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="images/favicon-192.png">
+  <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+  <meta name="theme-color" content="#b3151b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="splash" class="splash" role="status" aria-live="polite">
+  <div class="splash-logo"><img id="splashLogo" alt="Living by Design"></div>
+  <h1>Welcome to LBDN Car Awards Portal</h1>
+  <div class="spin"></div>
+  <p>Loading the latest scores…</p>
+</div>
+
+<div id="waModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="waTitle">
+  <div class="modal-box">
+    <h2 id="waTitle">You’re registered</h2>
+    <p>Join the Car Award WhatsApp group to get updates, reminders and results.</p>
+    <a id="waJoin" class="btn" target="_blank" rel="noopener">Join the WhatsApp group</a>
+    <button id="waSkip" class="btn ghost" type="button">Continue to log in</button>
+  </div>
+</div>
+
+<header class="bar">
+  <div class="brand">
+    <img id="logo" alt="Living by Design">
+    <span class="brand-name">LIVING BY DESIGN NATION</span>
+  </div>
+  <nav class="nav">
+    <button id="boardBtn" class="btn ghost" type="button">Leaderboard</button>
+    <button id="dashBtn" class="btn ghost hidden" type="button">My dashboard</button>
+    <button id="loginNav" class="btn ghost" type="button">Login</button>
+    <button id="registerNav" class="btn" type="button">Register</button>
+    <button id="logoutBtn" class="btn ghost hidden">Log out</button>
+  </nav>
+</header>
+
+<main>
+  <!-- WELCOME -->
+  <section id="viewWelcome" class="view">
+    <div class="hero">
+      <div id="slides" class="slides" aria-hidden="true"></div>
+      <div class="shade"></div>
+      <div class="hero-copy">
+        <h1 id="heroTitle">Living by Design Nation Car Award</h1>
+        <p id="heroSub"></p>
+        <p id="closeNotice" class="count"></p>
+        <a href="#join" class="btn">Register to compete</a>
+        <button id="heroBoard" class="btn light" type="button">View leaderboard</button>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <h2>How you earn points</h2>
+      <p class="muted" id="noteText"></p>
+      <div id="criteriaList" class="crit-grid"></div>
+
+      <div id="join" class="join card">
+        <div class="tabs">
+          <button class="tab active" data-tab="register">Register</button>
+          <button class="tab" data-tab="login">Log in</button>
+        </div>
+        <form id="registerForm">
+          <label>Full name<input name="name" required></label>
+          <label>Email<input name="email" type="email" required></label>
+          <label>Phone<input name="phone" type="tel"></label>
+          <label>Password<input name="password" type="password" minlength="6" required></label>
+          <label class="check"><input type="checkbox" required> I understand how points are scored</label>
+          <button class="btn" type="submit">Register</button>
+          <p class="msg" id="registerMsg"></p>
+        </form>
+        <form id="loginForm" class="hidden">
+          <label>Email<input name="email" type="email" required></label>
+          <label>Password<input name="password" type="password" required></label>
+          <label class="check"><input type="checkbox" name="admin"> Admin login</label>
+          <button class="btn" type="submit">Log in</button>
+          <p class="msg" id="loginMsg"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- PUBLIC LEADERBOARD -->
+  <section id="viewBoard" class="view hidden">
+    <div class="panel">
+      <div class="panel-copy">
+        <h1>Leaderboard</h1>
+        <p class="muted-light">Live standings for the Living by Design Nation Car Award. Last updated <span id="boardUpdated">-</span></p>
+      </div>
+    </div>
+    <div class="wrap">
+      <div id="podium" class="podium"></div>
+      <div class="card"><h2>Full standings</h2><div class="table-wrap"><table id="publicTable"></table></div></div>
+      <button class="btn ghost" id="boardBack" type="button">Back</button>
+    </div>
+  </section>
+
+  <!-- CONTESTANT DASHBOARD -->
+  <section id="viewDashboard" class="view hidden">
+    <div class="panel">
+      <img id="panelImg" alt="">
+      <div class="panel-copy">
+        <h1>Hello, <span id="meName"></span></h1>
+        <p class="muted-light">Last updated <span id="lastUpdate">-</span></p>
+        <div class="big">
+          <div><strong id="mePosition">-</strong><span id="meOutOf"></span></div>
+          <div><strong id="meScore">0</strong><span>of 100 points</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="wrap">
+      <div id="waBanner" class="wa hidden"><span>Join the Car Award WhatsApp group for updates.</span><a id="waBannerBtn" class="btn" target="_blank" rel="noopener">Join WhatsApp group</a></div>
+      <div class="card">
+        <h2>Report your progress</h2>
+        <p class="muted small">Add what you have completed. The admin checks each entry before it counts. You can edit or delete an entry until it is approved.</p>
+        <form id="entryForm" class="inline">
+          <input type="hidden" name="entryId">
+          <label>Criterion<select name="criteriaKey" id="entryCriteria" required></select></label>
+          <label>Amount completed<input name="value" type="number" step="any" min="0" required></label>
+          <label>Date<input name="date" type="date"></label>
+          <label>Note (optional)<input name="note" maxlength="300" placeholder="Proof, names, order numbers"></label>
+          <div><button class="btn" type="submit" id="entryBtn">Submit for approval</button><button class="btn ghost hidden" type="button" id="entryCancel">Cancel edit</button></div>
+        </form>
+        <p class="msg" id="entryMsg"></p>
+        <div class="table-wrap"><table id="mySubs"></table></div>
+      </div>
+      <div class="card"><h2>Your breakdown</h2><div id="breakdown"></div></div>
+      <div class="card"><h2>Leaderboard</h2><div class="table-wrap"><table id="boardTable"></table></div></div>
+      <div class="card"><h2>Recorded by admin</h2><ul id="historyList" class="plain"></ul></div>
+    </div>
+  </section>
+
+  <!-- ADMIN -->
+  <section id="viewAdmin" class="view hidden">
+    <div class="wrap">
+      <h1>Admin dashboard</h1>
+      <div class="card">
+        <h2>Approvals <span id="pendingCount" class="badge pending hidden"></span></h2>
+        <p class="muted small">Check each entry and change the amount if needed, then approve or reject it. Only approved amounts count on the leaderboard and in the PDF.</p>
+        <div class="table-wrap"><table id="reviewTable"></table></div>
+        <p class="msg" id="reviewMsg"></p>
+      </div>
+      <div class="card">
+        <h2>Add a daily score</h2>
+        <form id="scoreForm" class="inline">
+          <select name="contestantId" id="scoreContestant" required></select>
+          <select name="criteriaKey" id="scoreCriteria" required></select>
+          <input name="value" type="number" step="any" placeholder="Value" required>
+          <input name="date" type="date">
+          <button class="btn" type="submit">Add score</button>
+        </form>
+        <p class="msg" id="scoreMsg"></p>
+      </div>
+
+      <div class="card">
+        <h2>Criteria</h2>
+        <p class="muted small">Weights should total 100. Current total: <strong id="weightTotal">0</strong></p>
+        <div class="table-wrap"><table id="critTable"></table></div>
+        <button class="btn ghost" id="addCrit" type="button">Add criterion</button>
+        <button class="btn" id="saveCrit" type="button">Save criteria</button>
+        <p class="msg" id="critMsg"></p>
+      </div>
+
+      <div class="card">
+        <h2>Award settings</h2>
+        <form id="settingsForm" class="inline">
+          <label>Award name<input name="award_name"></label>
+          <label>Prize<input name="prize_name"></label>
+          <label>Closing date<input name="close_date" type="date"></label>
+          <label>Registration<select name="registration_open"><option value="TRUE">Open</option><option value="FALSE">Closed</option></select></label>
+          <label>WhatsApp group link<input name="whatsapp_link" type="url" placeholder="https://chat.whatsapp.com/..."></label>
+          <label>Message to contestants<input name="targets_note"></label>
+          <button class="btn" type="submit">Save settings</button>
+        </form>
+        <p class="msg" id="settingsMsg"></p>
+      </div>
+
+      <div class="card">
+        <h2>Leaderboard</h2>
+        <div class="table-wrap"><table id="adminTable"></table></div>
+        <button class="btn" id="pdfBtn" type="button">Export PDF report</button>
+        <button class="btn ghost" id="exportBtn">Download CSV report</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
