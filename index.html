@@ -122,13 +122,18 @@
       <div id="waBanner" class="wa hidden"><span>Join the Car Award WhatsApp group for updates.</span><a id="waBannerBtn" class="btn" target="_blank" rel="noopener">Join WhatsApp group</a></div>
       <div class="card">
         <h2>Report your progress</h2>
-        <p class="muted small">Add what you have completed. The admin checks each entry before it counts. You can edit or delete an entry until it is approved.</p>
+        <p class="muted small">Add what you have completed and attach a receipt or screenshot as proof. The admin checks each entry before it counts. You can edit or delete an entry until it is approved.</p>
         <form id="entryForm" class="inline">
           <input type="hidden" name="entryId">
           <label>Criterion<select name="criteriaKey" id="entryCriteria" required></select></label>
           <label>Amount completed<input name="value" type="number" step="any" min="0" required></label>
           <label>Date<input name="date" type="date"></label>
-          <label>Note (optional)<input name="note" maxlength="300" placeholder="Proof, names, order numbers"></label>
+          <label>Note (optional)<input name="note" maxlength="300" placeholder="Names, order numbers, details"></label>
+          <label class="file">Receipts or screenshots (optional)
+            <input type="file" id="proofFiles" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,application/pdf" multiple>
+            <span class="hint">Up to 3 files. Each must be under 10 MB. Photos, screenshots or PDFs.</span>
+          </label>
+          <div id="proofKeep" class="chips"></div>
           <div><button class="btn" type="submit" id="entryBtn">Submit for approval</button><button class="btn ghost hidden" type="button" id="entryCancel">Cancel edit</button></div>
         </form>
         <p class="msg" id="entryMsg"></p>
